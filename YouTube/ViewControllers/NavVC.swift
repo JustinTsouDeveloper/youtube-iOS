@@ -30,18 +30,35 @@ class NavVC: UINavigationController, PlayerVCDelegate  {
     @IBOutlet var settingsView: SettingsView!
     let titleLabel = UILabel()
     let names = ["Home", "Trending", "Subscriptions", "Account"]
+    
+    
+    
     let hiddenOrigin: CGPoint = {
-        let y = UIScreen.main.bounds.height - (UIScreen.main.bounds.width * 9 / 32) - 10
-        let x = -UIScreen.main.bounds.width
+        let tabBarHeight:CGFloat = 83.0
+        
+        let y = UIScreen.main.bounds.height // - (UIScreen.main.bounds.width * (9/16) - 83 - 80)
+        let x:CGFloat = 0.0 // +1 原因是 hidden 時，會露出一部分(約 1 到距離)，所以讓 view 在左移一些
         let coordinate = CGPoint.init(x: x, y: y)
         return coordinate
     }()
+    
+//    let minimizedOrigin: CGPoint = {
+//        let x = UIScreen.main.bounds.width/2 - 10
+//        let y = UIScreen.main.bounds.height - (UIScreen.main.bounds.width * 9 / 32) - 10
+//        let coordinate = CGPoint.init(x: x, y: y)
+//        return coordinate
+//    }()
+    
     let minimizedOrigin: CGPoint = {
-        let x = UIScreen.main.bounds.width/2 - 10
-        let y = UIScreen.main.bounds.height - (UIScreen.main.bounds.width * 9 / 32) - 10
+        let floatingViewFixedHeight: CGFloat = 80.0
+        let tabBarHeight: CGFloat = 83.0
+        
+        let x: CGFloat = 0 // -1 原因是 FullScreen to miniScreen 時，左邊會有一點 gap，所以讓 view 左移
+        let y = UIScreen.main.bounds.height - floatingViewFixedHeight - tabBarHeight
         let coordinate = CGPoint.init(x: x, y: y)
         return coordinate
     }()
+    
     let fullScreenOrigin = CGPoint.init(x: 0, y: 0)
 
     //Methods
@@ -137,6 +154,12 @@ class NavVC: UINavigationController, PlayerVCDelegate  {
     func animatePlayView(toState: stateOfVC) {
         switch toState {
         case .fullScreen:
+            
+//            UIView.animate(withDuration: 0.3, animations: {
+//                 self.playerView.frame.origin = self.fullScreenOrigin
+//            })
+            
+            // 彈簧效果
             UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 5, options: [.beginFromCurrentState], animations: {
                 self.playerView.frame.origin = self.fullScreenOrigin
             })
@@ -151,12 +174,36 @@ class NavVC: UINavigationController, PlayerVCDelegate  {
         }
     }
     
-    func positionDuringSwipe(scaleFactor: CGFloat) -> CGPoint {
+    func positionDuringSwipe(scaleFactor: CGFloat, state: stateOfVC) -> CGPoint {
         let width = UIScreen.main.bounds.width * 0.5 * scaleFactor
-        let height = width * 9 / 16
-        let x = (UIScreen.main.bounds.width - 10) * scaleFactor - width
-        let y = (UIScreen.main.bounds.height - 10) * scaleFactor - height
+        var height: CGFloat = 0.0
+        let tabBarHeight: CGFloat = 83.0
+        
+        switch state {
+        case .fullScreen:
+            height = (width * 9 / 16) + tabBarHeight
+            //print("positionDuringSwipe fullScreen:\(height)")
+            break
+        case .minimized:
+            height = (width * 9 / 16)
+            //print("positionDuringSwipe minimized:\(height)")
+            break
+        default:
+            break
+        }
+        
+        let x: CGFloat = -1 //(UIScreen.main.bounds.width) * scaleFactor - width
+        let y = (UIScreen.main.bounds.height) * scaleFactor - height
+        
         let coordinate = CGPoint.init(x: x, y: y)
+        
+        
+//        print("scaleFactor:\(scaleFactor)\n") // 上滑拖動減少，下滑拖動增加
+//        print("width:\(width)\n")
+//        print("height:\(height)\n")
+//        print("x:\(x)\n")
+//        print("y:\(y)\n")
+    
         return coordinate
     }
     
@@ -176,11 +223,11 @@ class NavVC: UINavigationController, PlayerVCDelegate  {
     func swipeToMinimize(translation: CGFloat, toState: stateOfVC){
         switch toState {
         case .fullScreen:
-            self.playerView.frame.origin = self.positionDuringSwipe(scaleFactor: translation)
+            self.playerView.frame.origin = self.positionDuringSwipe(scaleFactor: translation, state: .fullScreen)
         case .hidden:
             self.playerView.frame.origin.x = UIScreen.main.bounds.width/2 - abs(translation) - 10
         case .minimized:
-            self.playerView.frame.origin = self.positionDuringSwipe(scaleFactor: translation)
+            self.playerView.frame.origin = self.positionDuringSwipe(scaleFactor: translation, state: .minimized)
         }
     }
     

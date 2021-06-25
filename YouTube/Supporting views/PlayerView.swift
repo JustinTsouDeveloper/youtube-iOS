@@ -69,20 +69,41 @@ class PlayerView: UIView, UITableViewDelegate, UITableViewDataSource, UIGestureR
                 self.delegate?.setPreferStatusBarHidden(false)
                 self.minimizeButton.alpha = 0
                 self.tableView.alpha = 0
-                let scale = CGAffineTransform.init(scaleX: 0.5, y: 0.5)
-                let trasform = scale.concatenating(CGAffineTransform.init(translationX: -self.player.bounds.width/4, y: -self.player.bounds.height/4))
+                let scale = CGAffineTransform.init(scaleX: 1, y: 0.5)
+                let trasform = scale.concatenating(CGAffineTransform.init(translationX: 0, y: -self.player.bounds.height/4))
+                
+//                print("y 值平移:\(-self.player.bounds.height/4)")
+//                print("PlayerView minimized:\(trasform)")
+                
                 self.player.transform = trasform
             })
         default: break
         }
     }
     
+//    func changeValues(scaleFactor: CGFloat) {
+//        self.minimizeButton.alpha = 1 - scaleFactor
+//        self.tableView.alpha = 1 - scaleFactor
+//        let scale = CGAffineTransform.init(scaleX: (1 - 0.5 * scaleFactor), y: (1 - 0.5 * scaleFactor))
+//        let trasform = scale.concatenating(CGAffineTransform.init(translationX: -(self.player.bounds.width / 4 * scaleFactor), y: -(self.player.bounds.height / 4 * scaleFactor)))
+//        self.player.transform = trasform
+//    }
+    
     func changeValues(scaleFactor: CGFloat) {
         self.minimizeButton.alpha = 1 - scaleFactor
         self.tableView.alpha = 1 - scaleFactor
-        let scale = CGAffineTransform.init(scaleX: (1 - 0.5 * scaleFactor), y: (1 - 0.5 * scaleFactor))
-        let trasform = scale.concatenating(CGAffineTransform.init(translationX: -(self.player.bounds.width / 4 * scaleFactor), y: -(self.player.bounds.height / 4 * scaleFactor)))
+        let scale = CGAffineTransform.init(scaleX: 1, y: (1 - 0.5 * scaleFactor))
+        
+        // 目的:根據 scale 比例，再使用 concatenating 方法做 y 軸的平移(單看移動的數值蠻小的)
+        // 藉由 concatenating 的方式，就是接著上一個 CGAffineTransform 執行，等於連續執行 CGAffineTransform，接幾個就跑幾個
+        let trasform = scale.concatenating(CGAffineTransform.init(translationX: 1, y: -(self.player.bounds.height/4 * scaleFactor)))
+        
         self.player.transform = trasform
+        
+        // self.player.bounds.height -> 211.0
+        // self.player.bounds.height/4 -> 52.75
+        
+        //print("trasform:\(trasform)")
     }
     
     @objc func tapPlayView()  {
@@ -99,34 +120,62 @@ class PlayerView: UIView, UITableViewDelegate, UITableViewDataSource, UIGestureR
     }
     
     @IBAction func minimizeGesture(_ sender: UIPanGestureRecognizer) {
+        
         if sender.state == .began {
             let velocity = sender.velocity(in: nil)
+            
             if abs(velocity.x) < abs(velocity.y) {
                 self.direction = .up
-            } else {
+            }else {
                 self.direction = .left
             }
         }
-        var finalState = stateOfVC.fullScreen
+        
+        var finalState = stateOfVC.fullScreen // 初始狀態
+        
         switch self.state {
         case .fullScreen:
+            
+            // fullScreen 時，往上滑動則不動作 (還需要改進), No get abs value
+            if sender.translation(in: nil).y < 0 {
+                finalState = .fullScreen
+                self.animate()
+                self.delegate?.didmaximize()
+                return
+            }
+            
             let factor = (abs(sender.translation(in: nil).y) / UIScreen.main.bounds.height)
             self.changeValues(scaleFactor: factor)
             self.delegate?.swipeToMinimize(translation: factor, toState: .minimized)
             finalState = .minimized
+            
         case .minimized:
+            
             if self.direction == .left {
-                finalState = .hidden
-                let factor: CGFloat = sender.translation(in: nil).x
-                self.delegate?.swipeToMinimize(translation: factor, toState: .hidden)
+//                finalState = .hidden
+//                let factor: CGFloat = sender.translation(in: nil).x
+//                self.delegate?.swipeToMinimize(translation: factor, toState: .hidden)
             } else {
+                
+                // minimized Screen 時，往下滑動則不動作 (還需要改進),No get abs value
+                if sender.translation(in: nil).y > 0 {
+                    finalState = .hidden
+                    self.delegate?.didEndedSwipe(toState: .hidden)
+                    return
+                }
+                
                 finalState = .fullScreen
+
                 let factor = 1 - (abs(sender.translation(in: nil).y) / UIScreen.main.bounds.height)
                 self.changeValues(scaleFactor: factor)
                 self.delegate?.swipeToMinimize(translation: factor, toState: .fullScreen)
+//                print("往下滑動則不動作 fullScreen")
+                
             }
         default: break
+            
         }
+        
         if sender.state == .ended {
             self.state = finalState
             self.animate()
@@ -135,6 +184,7 @@ class PlayerView: UIView, UITableViewDelegate, UITableViewDataSource, UIGestureR
                 self.videoPlayer.pause()
             }
         }
+        
     }
     
     //MARK: Delegate & dataSource methods
